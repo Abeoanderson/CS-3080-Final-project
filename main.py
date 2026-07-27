@@ -16,6 +16,11 @@ BLOCK = 20
 ROWS = (HEIGHT - 120) // BLOCK
 COLS = WIDTH // BLOCK
 
+# game states
+START = 0
+PLAYING = 1
+GAME_OVER = 2
+
 # Game settinngs: screen, clock, title, etc.
 SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 CLOCK = pygame.time.Clock()
@@ -40,7 +45,7 @@ ASSETS ={
 # fonts
 font1 = pygame.font.Font(
     "Assets/PressStart2P-Regular.ttf",
-    50
+    30
 )
 
 font2 = pygame.font.Font(
@@ -87,6 +92,8 @@ class Game:
         self.cols = cols
         self.score = 0
         self.level = 1
+        self.lines = 0
+        self.message = ""
         self.grid = [[0 for _ in range(cols)] for _ in range(rows)] # list compreheni
         self.next = None
         self.end = False
@@ -114,6 +121,8 @@ class Game:
     def restart(self):
         self.score = 0
         self.level = 1
+        self.lines = 0
+        self.message = ""
         self.grid = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
         self.end = False
         self.next = None
@@ -213,14 +222,57 @@ class Game:
                     if row >= 0:
                         self.grid[row][col] = self.figure.color
 
+        self.clear_rows()
         self.new_shape()
 
+    # clear row if whole row is clear
+    def clear_rows(self):
+
+        cleared = 0
+
+        for row in range(self.rows - 1, -1, -1):
+
+            if 0 not in self.grid[row]:
+
+                del self.grid[row]
+
+                self.grid.insert(
+                    0,
+                    [0 for _ in range(self.cols)]
+                )
+
+                cleared += 1
+
+        if cleared > 0:
+            self.update_score(cleared)
+    # update scores for lines
+    def update_score(self, cleared):
+
+        scores = {
+            1: 100,
+            2: 300,
+            3: 500,
+            4: 800
+        }
+
+        self.score += scores[cleared]
+        self.lines += cleared
+
+        if cleared == 4:
+            self.message = "TETRIS!"
+
+        self.level = (self.lines // 10) + 1
 
 
 
 # Main game loop
 def main():
     tetris = Game(ROWS, COLS)
+
+    game_state = START
+    countdown = 3
+    countdown_timer = pygame.time.get_ticks()
+
     counter = 0
     move = True
     move_counter = 0
@@ -231,6 +283,46 @@ def main():
 
     run = True
     while run:
+        if game_state == START:
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    sys.exit()
+
+            SCREEN.fill(BG_COLOR)
+
+            current_time = pygame.time.get_ticks()
+
+            if current_time - countdown_timer >= 1000:
+                countdown -= 1
+                countdown_timer = current_time
+
+            if countdown <= 0:
+                game_state = PLAYING
+
+
+            text = font1.render(
+                str(countdown) if countdown > 0 else "START!",
+                True,
+                WHITE
+            )
+
+            SCREEN.blit(
+                text,
+                (
+                    WIDTH // 2 - text.get_width() // 2,
+                    HEIGHT // 2 - text.get_height() // 2
+                )
+            )
+
+            pygame.display.update()
+            CLOCK.tick(FPS)
+
+            continue
+
+
+
         SCREEN.fill(BG_COLOR)
 
         for event in pygame.event.get():
@@ -243,6 +335,10 @@ def main():
                     # only restart is valid once the game is over
                     if event.key == pygame.K_r:
                         tetris.restart()
+
+                        game_state = START
+                        countdown = 3
+                        countdown_timer = pygame.time.get_ticks()
                 else:
                     if event.key == pygame.K_LEFT or event.key == pygame.K_a:
                         tetris.move_left()
@@ -260,31 +356,32 @@ def main():
         # continuous key state (held-down movement / soft drop), read once per frame
         keys = pygame.key.get_pressed()
 
-        if not tetris.end:
-            move_counter += 1
+        if game_state == PLAYING:
+            if not tetris.end:
+                move_counter += 1
 
-            if move_counter >= move_delay:
+                if move_counter >= move_delay:
 
-                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                    tetris.move_left()
+                    if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                        tetris.move_left()
 
-                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                    tetris.move_right()
+                    if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                        tetris.move_right()
 
-                move_counter = 0
+                    move_counter = 0
 
-            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                if not tetris.move_down():
-                    tetris.freeze_piece()
-
-            counter += 1
-            if counter >= 10000:
-                counter = 0
-
-            if move:
-                if counter % max(1, FPS // tetris.level) == 0:
-                    if not tetris.move_down(): # if peice cannot move down freez it
+                if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                    if not tetris.move_down():
                         tetris.freeze_piece()
+
+                counter += 1
+                if counter >= 10000:
+                    counter = 0
+
+                if move:
+                    if counter % max(1, FPS // tetris.level) == 0:
+                        if not tetris.move_down(): # if peice cannot move down freez it
+                            tetris.freeze_piece()
 
         tetris.make_grid()
         # draw frozen blocks
@@ -324,6 +421,70 @@ def main():
                         (x, y, BLOCK, BLOCK),
                         1
                     )
+
+        score_text = font2.render(
+            f"Score: {tetris.score}",
+            True,
+            WHITE
+        )
+
+        level_text = font2.render(
+            f"Level: {tetris.level}",
+            True,
+            WHITE
+        )
+
+        lines_text = font2.render(
+            f"Lines: {tetris.lines}",
+            True,
+            WHITE
+        )
+
+
+        SCREEN.blit(score_text, (10, HEIGHT - 90))
+        SCREEN.blit(level_text, (10, HEIGHT - 65))
+        SCREEN.blit(lines_text, (10, HEIGHT - 40))
+        if tetris.message:
+            text = font2.render(
+                tetris.message,
+                True,
+                WHITE
+            )
+
+            SCREEN.blit(text, (100, HEIGHT - 100))
+
+        if tetris.end:
+            game_state = GAME_OVER
+        if game_state == GAME_OVER:
+
+            text = font1.render(
+                "GAME OVER",
+                True,
+                LOSE
+            )
+
+            restart = font2.render(
+                "Press R to restart",
+                True,
+                WHITE
+            )
+
+            SCREEN.blit(
+                text,
+                (
+                    WIDTH // 2 - text.get_width() // 2,
+                    HEIGHT // 2 - 40
+                )
+            )
+
+            SCREEN.blit(
+                restart,
+                (
+                    WIDTH // 2 - restart.get_width() // 2,
+                    HEIGHT // 2 + 30
+                )
+            )
+
         CLOCK.tick(FPS)
         pygame.display.update()
 
