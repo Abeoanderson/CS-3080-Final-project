@@ -10,7 +10,7 @@ pygame.init()
 
 # Constants
 WIDTH, HEIGHT = 300, 500
-FPS = 35
+FPS = 15
 
 BLOCK = 20
 ROWS = (HEIGHT - 120) // BLOCK
@@ -102,8 +102,22 @@ class Game:
     def new_shape(self):
         if not self.next:
             self.next = Shape(5,0)
+
         self.figure = self.next
         self.next = Shape(5,0)
+
+        # check if new piece immediately collides if so end game
+        if self.collision():
+            self.end = True
+
+    # Restart
+    def restart(self):
+        self.score = 0
+        self.level = 1
+        self.grid = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
+        self.end = False
+        self.next = None
+        self.new_shape()
 
     # check collisions returns a bool for collison yes or no
     def collision(self):
@@ -212,6 +226,9 @@ def main():
     move_counter = 0
     move_delay = 5
 
+    # poll key state once up front so it always exists before it's read
+    keys = pygame.key.get_pressed()
+
     run = True
     while run:
         SCREEN.fill(BG_COLOR)
@@ -222,46 +239,50 @@ def main():
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
+                if tetris.end:
+                    # only restart is valid once the game is over
+                    if event.key == pygame.K_r:
+                        tetris.restart()
+                else:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                        tetris.move_left()
 
-                if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                    tetris.move_left()
+                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                        tetris.move_right()
 
-                elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                    tetris.move_right()
+                    elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                        tetris.rotate()
 
-                elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                    tetris.rotate()
-
-                elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-                    if not tetris.move_down():
+                    elif event.key == pygame.K_SPACE:
+                        tetris.slam()
                         tetris.freeze_piece()
 
-                elif event.key == pygame.K_SPACE:
-                    tetris.slam()
-                    tetris.freeze_piece()
+        # continuous key state (held-down movement / soft drop), read once per frame
         keys = pygame.key.get_pressed()
-        # hold down keys keeps them moving
-        move_counter += 1
 
-        if move_counter >= move_delay:
+        if not tetris.end:
+            move_counter += 1
 
-            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-                tetris.move_left()
+            if move_counter >= move_delay:
 
-            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-                tetris.move_right()
+                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                    tetris.move_left()
 
-            move_counter = 0
+                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                    tetris.move_right()
 
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            tetris.move_down()
-        counter += 1
-        if counter >= 10000:
-            counter = 0
+                move_counter = 0
 
-        if move:
-            if counter %(FPS //(tetris.level)) == 0:
-                if not tetris.end: # while game still goes
+            if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                if not tetris.move_down():
+                    tetris.freeze_piece()
+
+            counter += 1
+            if counter >= 10000:
+                counter = 0
+
+            if move:
+                if counter % max(1, FPS // tetris.level) == 0:
                     if not tetris.move_down(): # if peice cannot move down freez it
                         tetris.freeze_piece()
 
