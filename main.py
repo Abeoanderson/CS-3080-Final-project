@@ -186,6 +186,20 @@ class Game:
         while self.move_down():
             pass
 
+    # freez peices at the bottom
+    def freeze_piece(self):
+        for i in range(4):
+            for j in range(4):
+
+                if i * 4 + j in self.figure.image():
+
+                    row = self.figure.y + i
+                    col = self.figure.x + j
+
+                    if row >= 0:
+                        self.grid[row][col] = self.figure.color
+
+        self.new_shape()
 
 
 
@@ -195,6 +209,8 @@ def main():
     tetris = Game(ROWS, COLS)
     counter = 0
     move = True
+    move_counter = 0
+    move_delay = 5
 
     run = True
     while run:
@@ -216,18 +232,26 @@ def main():
                 elif event.key == pygame.K_UP or event.key == pygame.K_w:
                     tetris.rotate()
 
-                elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    tetris.move_down()
+                elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                    if not tetris.move_down():
+                        tetris.freeze_piece()
 
                 elif event.key == pygame.K_SPACE:
                     tetris.slam()
+                    tetris.freeze_piece()
         keys = pygame.key.get_pressed()
         # hold down keys keeps them moving
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            tetris.move_left()
+        move_counter += 1
 
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            tetris.move_right()
+        if move_counter >= move_delay:
+
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                tetris.move_left()
+
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                tetris.move_right()
+
+            move_counter = 0
 
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             tetris.move_down()
@@ -237,10 +261,30 @@ def main():
 
         if move:
             if counter %(FPS //(tetris.level)) == 0:
-                if not tetris.end:
-                    tetris.move_down()
+                if not tetris.end: # while game still goes
+                    if not tetris.move_down(): # if peice cannot move down freez it
+                        tetris.freeze_piece()
 
         tetris.make_grid()
+        # draw frozen blocks
+        for row in range(ROWS):
+            for col in range(COLS):
+
+                if tetris.grid[row][col] > 0:
+
+                    shape = ASSETS[tetris.grid[row][col]]
+
+                    x = col * BLOCK
+                    y = row * BLOCK
+
+                    SCREEN.blit(shape, (x, y))
+
+                    pygame.draw.rect(
+                        SCREEN,
+                        WHITE,
+                        (x, y, BLOCK, BLOCK),
+                        1
+                    )
 
         # show shape on game screen
         for i in range(4):
