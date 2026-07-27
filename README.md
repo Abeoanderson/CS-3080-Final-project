@@ -12,3 +12,8 @@ please run in a conda env or simaler using:
   pip install pygame 
 
   then from the directoy of main.py run python main.py to play
+
+
+assets for the pngs and the inital project set up come from:
+
+https://www.youtube.com/watch?v=JkjiFPNH0Ng&t=3297s
