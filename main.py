@@ -24,7 +24,7 @@ pygame.display.set_caption("Abes Tetris Game")
 # Colors
 BLACK = (0,0,0)
 WHITE = (255,255,255)
-BG_COLOR = (20,20,20)
+BG_COLOR = (31,25,76)
 GRID = (100,100,100)
 WIN = (0,255,0)
 LOSE = (255,0,0)
@@ -79,32 +79,41 @@ class Shape:
     def rotate(self):
         self.orientation = (self.orientation + 1) % len(self.shape)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Game Class
-    # constructore
+class Game:
+    # constructor
+    def __init__(self,rows, cols):
+        self.rows = rows
+        self.cols = cols
+        self.score = 0
+        self.level = 0
+        self.grid = [[0 for _ in range(cols)] for _ in range(rows)] # list compreheni
+        self.next = None
+        self.end = False
+        self.new_shape()
 
     # Make grid
-
+    def make_grid(self):
+        for i in range(self.rows + 1):
+            pygame.draw.line(SCREEN, GRID, (0, BLOCK * i), (WIDTH, BLOCK * i))
+        for j in range(self.cols + 1):
+            pygame.draw.line(SCREEN, GRID, (BLOCK * j, 0), (BLOCK * j, HEIGHT - 120))
     # Make new shape
+    def new_shape(self):
+        if not self.next:
+            self.next = Shape(5,0)
+        self.figure = self.next
+        self.next = Shape(5,0)
+
+
+
+
+
 
 
 # Main game loop
 def main():
+    tetris = Game(ROWS, COLS)
     run = True
     while run:
         SCREEN.fill(BG_COLOR)
@@ -114,7 +123,24 @@ def main():
                 run = False
                 sys.exit()
 
+        tetris.make_grid()
 
+        # show shape on game screen
+        for i in range(4):
+            for j in range(4):
+                if i * 4 + j in tetris.figure.image():
+                    shape = ASSETS[tetris.figure.color]
+
+                    x = BLOCK * (tetris.figure.x + j)
+                    y = BLOCK * (tetris.figure.y + i)
+
+                    SCREEN.blit(shape, (x, y))
+                    pygame.draw.rect(
+                        SCREEN,
+                        WHITE,
+                        (x, y, BLOCK, BLOCK),
+                        1
+                    )
         pygame.display.update()
 
 if __name__ == "__main__":
