@@ -8,7 +8,7 @@ pygame.init()
 
 # Constants
 WIDTH, HEIGHT = 430, 500
-FPS = 15
+FPS = 35
 
 BLOCK = 20
 ROWS = (HEIGHT - 120) // BLOCK
@@ -19,14 +19,10 @@ BOARD_X = 110
 BOARD_Y = 20
 
 # next box
-NEXT_X = BOARD_X + COLS * BLOCK + 20
-NEXT_Y = 60
-NEXT_SIZE = 80
-
 # hold box
-HOLD_X = 20
-HOLD_Y = 60
-
+HOLD_X, HOLD_Y, HOLD_SIZE = 20, 50, 70
+NEXT_X = BOARD_X + COLS * BLOCK + 20
+NEXT_Y, NEXT_SIZE = 50, 70
 # game states
 START = 0
 PLAYING = 1
@@ -44,13 +40,21 @@ BG_COLOR = (31,25,76)
 GRID = (100,100,100)
 WIN = (0,255,0)
 LOSE = (255,0,0)
+GHOST = (180, 180, 180)
 
 # load / store images
-ASSETS ={
+PREVIEW_BLOCK = 15  # smaller than the in-game BLOCK (20)
+
+ASSETS = {
     1: pygame.image.load("Assets/1.png"),
     2: pygame.image.load("Assets/2.png"),
     3: pygame.image.load("Assets/3.png"),
     4: pygame.image.load("Assets/4.png")
+}
+
+PREVIEW_ASSETS = {
+    k: pygame.transform.scale(img, (PREVIEW_BLOCK, PREVIEW_BLOCK))
+    for k, img in ASSETS.items()
 }
 
 # fonts
@@ -157,7 +161,7 @@ class Game:
             2
         )
         text = font2.render("HOLD", True, WHITE)
-        SCREEN.blit(text, (25,20))
+        SCREEN.blit(text, (HOLD_X+ 20, HOLD_Y - 20))
         # draw next box
         NEXT_BOX = pygame.Rect(
             BOARD_X + COLS*BLOCK + 20,
@@ -185,27 +189,42 @@ class Game:
             self.end = True
 
     # draw preview of peice
-    def draw_preview(self, piece, box_x, box_y):
-
+    def draw_preview(self, piece, box_x, box_y, box_size=70):
         if piece is None:
             return
 
+        cells = piece.image()
+        rows = [i for i in range(4) for j in range(4) if i * 4 + j in cells]
+        cols = [j for i in range(4) for j in range(4) if i * 4 + j in cells]
+        min_row, max_row = min(rows), max(rows)
+        min_col, max_col = min(cols), max(cols)
+
+        piece_w = (max_col - min_col + 1) * PREVIEW_BLOCK
+        piece_h = (max_row - min_row + 1) * PREVIEW_BLOCK
+
+        offset_x = box_x + (box_size - piece_w) // 2
+        offset_y = box_y + (box_size - piece_h) // 2
+
         for i in range(4):
             for j in range(4):
+                if i * 4 + j in cells:
+                    x = offset_x + (j - min_col) * PREVIEW_BLOCK
+                    y = offset_y + (i - min_row) * PREVIEW_BLOCK
+                    SCREEN.blit(PREVIEW_ASSETS[piece.color], (x, y))
+                    pygame.draw.rect(SCREEN, WHITE, (x, y, PREVIEW_BLOCK, PREVIEW_BLOCK), 1)
 
-                if i * 4 + j in piece.image():
+    # calculate the row the piece would land on if dropped now
+    def ghost_position(self):
+        original_y = self.figure.y
 
-                    x = box_x + 10 + j * BLOCK
-                    y = box_y + 10 + i * BLOCK
+        while not self.collision():
+            self.figure.y += 1
 
-                    SCREEN.blit(ASSETS[piece.color], (x, y))
+        self.figure.y -= 1
+        ghost_y = self.figure.y
 
-                    pygame.draw.rect(
-                        SCREEN,
-                        WHITE,
-                        (x, y, BLOCK, BLOCK),
-                        1
-                    )
+        self.figure.y = original_y
+        return ghost_y
     # Restart
     def restart(self):
         self.score = 0
@@ -520,7 +539,24 @@ def main():
                         (x, y, BLOCK, BLOCK),
                         1
                     )
+        # draw ghost piece (outline only, shows where it will land)
+        if not tetris.end:
+            ghost_y = tetris.ghost_position()
 
+            for i in range(4):
+                for j in range(4):
+                    if i * 4 + j in tetris.figure.image():
+
+                        x = BOARD_X + BLOCK * (tetris.figure.x + j)
+                        y = BOARD_Y + BLOCK * (ghost_y + i)
+
+                        if x >= 0 and y >= 0:
+                            pygame.draw.rect(
+                                SCREEN,
+                                GHOST,
+                                (x, y, BLOCK, BLOCK),
+                                2
+                            )
         # show shape on game screen
         for i in range(4):
             for j in range(4):
@@ -539,8 +575,8 @@ def main():
                         1
                     )
         # draw next and held peice preveiws in centered box
-        tetris.draw_preview(tetris.next, NEXT_X, NEXT_Y)
-        tetris.draw_preview(tetris.held, HOLD_X, HOLD_Y)
+        tetris.draw_preview(tetris.next, NEXT_X, NEXT_Y, NEXT_SIZE)
+        tetris.draw_preview(tetris.held, HOLD_X, HOLD_Y, HOLD_SIZE)
         score_text = font2.render(
             f"Score: {tetris.score}",
             True,
