@@ -19,10 +19,12 @@ BOARD_X = 110
 BOARD_Y = 20
 
 # next box
-# hold box
 HOLD_X, HOLD_Y, HOLD_SIZE = 20, 50, 70
+
+# hold box
 NEXT_X = BOARD_X + COLS * BLOCK + 20
 NEXT_Y, NEXT_SIZE = 50, 70
+
 # game states
 START = 0
 PLAYING = 1
@@ -38,12 +40,11 @@ BLACK = (0,0,0)
 WHITE = (255,255,255)
 BG_COLOR = (31,25,76)
 GRID = (100,100,100)
-WIN = (0,255,0)
 LOSE = (255,0,0)
 GHOST = (180, 180, 180)
 
 # load / store images
-PREVIEW_BLOCK = 15  # smaller than the in-game BLOCK (20)
+PREVIEW_BLOCK = 10  # smaller than the in-game BLOCK (20)
 
 ASSETS = {
     1: pygame.image.load("Assets/1.png"),
@@ -111,6 +112,7 @@ class Game:
         self.held = None
         self.can_hold = True
         self.message = ""
+        self.message_timer = 0
         self.grid = [[0 for _ in range(cols)] for _ in range(rows)] # list compreheni
         self.next = None
         self.end = False
@@ -231,6 +233,9 @@ class Game:
         self.level = 1
         self.lines = 0
         self.message = ""
+        self.message_timer = 0
+        self.held = None
+        self.can_hold = True
         self.grid = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
         self.end = False
         self.next = None
@@ -394,6 +399,7 @@ class Game:
 
         if cleared == 4:
             self.message = "TETRIS!"
+            self.message_timer = pygame.time.get_ticks()
 
         self.level = (self.lines // 10) + 1
 
@@ -458,6 +464,8 @@ def main():
 
 
         SCREEN.fill(BG_COLOR)
+        current_time = pygame.time.get_ticks()
+
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -599,6 +607,12 @@ def main():
         SCREEN.blit(score_text, (10, HEIGHT - 90))
         SCREEN.blit(level_text, (10, HEIGHT - 65))
         SCREEN.blit(lines_text, (10, HEIGHT - 40))
+
+        #tetris timer check so it fades
+        if tetris.message and current_time - tetris.message_timer > 2000:
+            tetris.message = ""
+
+        #if timer still going render tetris
         if tetris.message:
             text = font2.render(
                 tetris.message,
