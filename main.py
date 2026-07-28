@@ -1,7 +1,5 @@
 # Tetris PyGame
 # Imports
-import sys
-
 import pygame
 import random
 import sys
@@ -9,12 +7,25 @@ import sys
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 300, 500
+WIDTH, HEIGHT = 430, 500
 FPS = 15
 
 BLOCK = 20
 ROWS = (HEIGHT - 120) // BLOCK
-COLS = WIDTH // BLOCK
+COLS = 10
+
+# board origin
+BOARD_X = 110
+BOARD_Y = 20
+
+# next box
+NEXT_X = BOARD_X + COLS * BLOCK + 20
+NEXT_Y = 60
+NEXT_SIZE = 80
+
+# hold box
+HOLD_X = 20
+HOLD_Y = 60
 
 # game states
 START = 0
@@ -93,6 +104,8 @@ class Game:
         self.score = 0
         self.level = 1
         self.lines = 0
+        self.held = None
+        self.can_hold = True
         self.message = ""
         self.grid = [[0 for _ in range(cols)] for _ in range(rows)] # list compreheni
         self.next = None
@@ -100,11 +113,65 @@ class Game:
         self.new_shape()
 
     # Make grid
-    def make_grid(self):
+    def make_board(self):
+    # Horizontal lines
         for i in range(self.rows + 1):
-            pygame.draw.line(SCREEN, GRID, (0, BLOCK * i), (WIDTH, BLOCK * i))
+            pygame.draw.line(
+                SCREEN,
+                GRID,
+                (BOARD_X, BOARD_Y + BLOCK * i),
+                (BOARD_X + COLS * BLOCK, BOARD_Y + BLOCK * i)
+            )
+        # Vertical lines
         for j in range(self.cols + 1):
-            pygame.draw.line(SCREEN, GRID, (BLOCK * j, 0), (BLOCK * j, HEIGHT - 120))
+            pygame.draw.line(
+                SCREEN,
+                GRID,
+                (BOARD_X + BLOCK * j, BOARD_Y),
+                (BOARD_X + BLOCK * j, BOARD_Y + ROWS * BLOCK)
+            )
+        # draw border 
+        pygame.draw.rect(
+            SCREEN,
+            WHITE,
+            (
+                BOARD_X,
+                BOARD_Y,
+                COLS * BLOCK,
+                ROWS * BLOCK
+            ),
+            3
+        )
+        # draw hold box
+        HOLD_BOX = pygame.Rect(
+            20,
+            50,
+            70,
+            70
+        )
+
+        pygame.draw.rect(
+            SCREEN,
+            WHITE,
+            HOLD_BOX,
+            2
+        )
+        text = font2.render("HOLD", True, WHITE)
+        SCREEN.blit(text, (25,20))
+        # draw next box
+        NEXT_BOX = pygame.Rect(
+            BOARD_X + COLS*BLOCK + 20,
+            50,
+            70,
+            70
+        )
+
+        pygame.draw.rect(
+            SCREEN,
+            WHITE,
+            NEXT_BOX,
+            2
+        )
     # Make new shape
     def new_shape(self):
         if not self.next:
@@ -117,6 +184,28 @@ class Game:
         if self.collision():
             self.end = True
 
+    # draw preview of peice
+    def draw_preview(self, piece, box_x, box_y):
+
+        if piece is None:
+            return
+
+        for i in range(4):
+            for j in range(4):
+
+                if i * 4 + j in piece.image():
+
+                    x = box_x + 10 + j * BLOCK
+                    y = box_y + 10 + i * BLOCK
+
+                    SCREEN.blit(ASSETS[piece.color], (x, y))
+
+                    pygame.draw.rect(
+                        SCREEN,
+                        WHITE,
+                        (x, y, BLOCK, BLOCK),
+                        1
+                    )
     # Restart
     def restart(self):
         self.score = 0
@@ -209,6 +298,25 @@ class Game:
         while self.move_down():
             pass
 
+    # hold peices
+    def hold(self):
+
+        if not self.can_hold:
+            return
+
+        if self.held is None:
+            self.held = self.figure
+            self.new_shape()
+        else:
+            self.figure, self.held = self.held, self.figure
+
+            self.figure.x = 5
+            self.figure.y = 0
+            self.figure.orientation = 0
+
+        self.can_hold = False
+
+
     # freez peices at the bottom
     def freeze_piece(self):
         for i in range(4):
@@ -222,6 +330,7 @@ class Game:
                     if row >= 0:
                         self.grid[row][col] = self.figure.color
 
+        self.can_hold = True
         self.clear_rows()
         self.new_shape()
 
@@ -229,8 +338,9 @@ class Game:
     def clear_rows(self):
 
         cleared = 0
+        row = self.rows - 1
 
-        for row in range(self.rows - 1, -1, -1):
+        while row >= 0:
 
             if 0 not in self.grid[row]:
 
@@ -242,6 +352,11 @@ class Game:
                 )
 
                 cleared += 1
+                # don't decrement `row` here — the row that shifted down
+                # into this same index (from further up the board) still
+                # needs to be checked before we move on
+            else:
+                row -= 1
 
         if cleared > 0:
             self.update_score(cleared)
@@ -352,6 +467,8 @@ def main():
                     elif event.key == pygame.K_SPACE:
                         tetris.slam()
                         tetris.freeze_piece()
+                    elif event.key == pygame.K_c:
+                        tetris.hold()
 
         # continuous key state (held-down movement / soft drop), read once per frame
         keys = pygame.key.get_pressed()
@@ -383,7 +500,7 @@ def main():
                         if not tetris.move_down(): # if peice cannot move down freez it
                             tetris.freeze_piece()
 
-        tetris.make_grid()
+        tetris.make_board()
         # draw frozen blocks
         for row in range(ROWS):
             for col in range(COLS):
@@ -392,8 +509,8 @@ def main():
 
                     shape = ASSETS[tetris.grid[row][col]]
 
-                    x = col * BLOCK
-                    y = row * BLOCK
+                    x = BOARD_X + col * BLOCK
+                    y = BOARD_Y + row * BLOCK
 
                     SCREEN.blit(shape, (x, y))
 
@@ -410,8 +527,8 @@ def main():
                 if i * 4 + j in tetris.figure.image():
                     shape = ASSETS[tetris.figure.color]
 
-                    x = BLOCK * (tetris.figure.x + j)
-                    y = BLOCK * (tetris.figure.y + i)
+                    x = BOARD_X + BLOCK * (tetris.figure.x + j)
+                    y = BOARD_Y + BLOCK * (tetris.figure.y + i)
 
                     if x >= 0 and y >= 0:
                         SCREEN.blit(shape, (x, y))
@@ -421,7 +538,9 @@ def main():
                         (x, y, BLOCK, BLOCK),
                         1
                     )
-
+        # draw next and held peice preveiws in centered box
+        tetris.draw_preview(tetris.next, NEXT_X, NEXT_Y)
+        tetris.draw_preview(tetris.held, HOLD_X, HOLD_Y)
         score_text = font2.render(
             f"Score: {tetris.score}",
             True,
